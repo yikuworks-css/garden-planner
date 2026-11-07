@@ -33,7 +33,7 @@
   .brand{position:fixed; top:max(14px, env(safe-area-inset-top)); left:16px; padding:9px 14px;
     font-weight:700; font-size:15px; display:flex; gap:8px; align-items:center}
   .brand svg{width:18px; height:18px; color:var(--accent)}
-  .tools{position:fixed; left:16px; top:calc(50% - var(--trayH)/2); transform:translateY(-50%);
+  .tools{position:fixed; left:16px; top:calc(50% - var(--trayH)/2 + 26px); transform:translateY(-50%);   /* centred between the name badge and the plant row */
     display:flex; flex-direction:column; gap:4px; padding:7px}
   .tool{width:60px; height:58px; border:0; border-radius:13px; background:transparent;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
@@ -108,7 +108,7 @@
   .sound-test .pbtn{padding:9px 10px; font-size:13px; justify-content:center}
   @media (max-width:640px){ .btn span{display:none} .brand span{display:none} }
   @media (max-height:620px){
-    .tool{width:48px; height:46px} .tool span{display:none}
+    .tool{width:48px; height:44px} .tool span{display:none}
     .card{width:76px} .card img{width:52px; height:52px}
   }
 </style>
@@ -150,6 +150,9 @@
 
 <div class="selbar panel" id="selbar">
   <button class="btn" id="turnBtn" title="Turn (R)"></button>
+  <button class="btn" id="bigBtn" title="Bigger (+)"></button>
+  <button class="btn" id="smallBtn" title="Smaller (-)"></button>
+  <button class="btn" id="potBtn"></button>
   <button class="btn del" id="delBtn" title="Remove (Delete)"></button>
 </div>
 
@@ -190,6 +193,11 @@ const ICON = {
   drop: svg('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>'),
   sprout: svg('<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>'),
   rake: svg('<path d="M12 2v12M5 14h14M6 14v6M9 14v6M12 14v6M15 14v6M18 14v6"/>'),
+  sand: svg('<path d="M2 20h20"/><path d="M4 20c1.5-4.5 4.5-7 8-7s6.5 2.5 8 7"/><path d="M9 17.5h.01M12.5 15.8h.01M15.5 18h.01"/>'),
+  pot: svg('<path d="M4 7h16v3H4z"/><path d="M6 10l1.4 10h9.2L18 10"/>'),
+  ground: svg('<path d="M2 20h20"/><path d="M5 20c1.2-2.4 3.8-3.5 7-3.5s5.8 1.1 7 3.5"/><path d="M12 16.5V9"/><path d="M12 12c-2.6 0-4-1.6-4-4 2.6 0 4 1.6 4 4zM12 10.5c0-2.4 1.4-4 4-4 0 2.4-1.4 4-4 4z"/>'),
+  bigger: svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>'),
+  smaller: svg('<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>'),
   undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
   grid: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>'),
   cube: svg('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
@@ -261,6 +269,11 @@ const audio = (() => {
     splash(){ const t = now(); noise({ t, f: 1800, f1: 600, q: .8, a: .01, dec: .2, vol: .2 }); tone({ f0: 500, f1: 1400, dec: .06, vol: .07, t: t + .03 }); },
     grass(){ noise({ type: 'highpass', f: 3500, a: .03, dec: .16, vol: .09 }); },
     rake(){ noise({ f: 1400, f1: 2000, q: 2, a: .01, dec: .13, vol: .16 }); },
+    sand(){ const t = now(); noise({ t, f: 2600, f1: 1500, q: .7, a: .03, dec: .2, vol: .1 }); for (let i = 0; i < 3; i++) noise({ t: t + .02 + i * rnd(.03, .05), type: 'highpass', f: 4500, dec: .02, vol: .05 }); },
+    grow(){ const t = now(); [523, 659, 784].forEach((f, i) => tone({ type: 'triangle', f0: f, dec: .1, vol: .05, t: t + i * .045 })); },
+    shrink(){ const t = now(); [784, 659, 523].forEach((f, i) => tone({ type: 'triangle', f0: f, dec: .1, vol: .05, t: t + i * .045 })); },
+    pot(){ const t = now(); tone({ type: 'triangle', f0: 620, f1: 560, dec: .12, vol: .12, t }); tone({ f0: 1250, dec: .07, vol: .04, t }); tone({ f0: 160, f1: 90, dec: .1, vol: .2, t }); },
+    plant(){ const t = now(); noise({ t, type: 'lowpass', f: 700, dec: .1, vol: .2 }); noise({ t: t + .09, type: 'lowpass', f: 600, dec: .08, vol: .14 }); tone({ f0: 110, f1: 60, dec: .12, vol: .22, t }); },
     turn(){ noise({ f: 1200, f1: 2600, a: .01, dec: .12, vol: .1 }); tone({ type: 'triangle', f0: 900, dec: .04, vol: .05 }); },
     undo(){ const t = now(); tone({ type: 'triangle', f0: 660, dec: .07, vol: .07, t }); tone({ type: 'triangle', f0: 494, dec: .1, vol: .07, t: t + .07 }); },
     shutter(){ const t = now(); noise({ t, type: 'highpass', f: 1500, dec: .03, vol: .25 }); noise({ t: t + .07, type: 'highpass', f: 1200, dec: .05, vol: .2 }); },
@@ -336,10 +349,13 @@ const audio = (() => {
 })();
 
 /* ================= garden layout (rough, from the photos) ================= */
-// 1 grid cell = 30 cm. Soil bed about 2.7 m x 4.5 m, tiles at the back, front and on the right.
+// 1 grid cell = 30 cm. Soil bed about 1.8 m x 4.5 m on the left, tiles at the back, front and on the right.
 const CELL = 0.3, COLS = 11, ROWS = 22, X0 = -1.65, Z0 = -3.3;
 const DIG = 0.14, TILE_TOP = 0.05, SNAP = 0.15;
-const isSoil = (c, r) => c >= 0 && c <= 8 && r >= 4 && r <= 18;
+const SOIL_C = [0, 5], SOIL_R = [4, 18];
+const isSoil = (c, r) => c >= SOIL_C[0] && c <= SOIL_C[1] && r >= SOIL_R[0] && r <= SOIL_R[1];
+// Phase 1 had a wider bed (columns 0-8, rows 4-18 = 135 squares). Old saves and links number their soil squares that way.
+const OLD_W = 9, OLD_R0 = 4, OLD_COUNT = 135;
 const inFloor = (c, r) => c >= 0 && c < COLS && r >= 0 && r < ROWS;
 const cellCenter = (c, r) => [X0 + (c + .5) * CELL, Z0 + (r + .5) * CELL];
 const cellAt = (x, z) => [Math.floor((x - X0) / CELL), Math.floor((z - Z0) / CELL)];
@@ -364,6 +380,7 @@ const G = {
   cyl8: new THREE.CylinderGeometry(1, 1, 1, 8),
   cyl9: new THREE.CylinderGeometry(1, 1, 1, 9),
   pot: new THREE.CylinderGeometry(1, .76, 1, 12),
+  mound: new THREE.CylinderGeometry(.62, 1, 1, 10),
   ico0: new THREE.IcosahedronGeometry(1, 0),
   ico1: new THREE.IcosahedronGeometry(1, 1),
   cone4: new THREE.ConeGeometry(1, 1, 4),
@@ -440,7 +457,9 @@ function sprinkle(g, R, list, n, hex, size, yMin = -.1){
   }
 }
 const C = { stem: 0x6b4a33, terracotta: 0xc0683a, clay: 0xb5603a, grey: 0x9b9a95, white: 0xe9e5dc, black: 0x343436, brown: 0x5b3b28, blue: 0x4f7090 };
+let GROUND = false;   // true while building the "straight in the soil" version of a plant
 function pot(g, r = .16, h = .26, hex = C.terracotta, soil = 0x4a3222){
+  if (GROUND){ M(G.mound, 0x5a3d27, g, [0, .01, 0], null, [r * 1.15, .04, r * 1.15]); return .02; }   // a small dark soil mound instead of a pot
   M(G.pot, hex, g, [0, h / 2, 0], null, [r, h, r]);
   M(G.cyl, hex, g, [0, h - .025, 0], null, [r * 1.08, .05, r * 1.08]);
   M(G.cyl, soil, g, [0, h - .004, 0], null, [r * .96, .012, r * .96]);
@@ -528,9 +547,10 @@ const CATALOG = [
     blobs(g, R, L, 0x4a8a3a); sprinkle(g, R, L, 34, 0xfaf8ef, .022, -.3);
   }},
   { id: 'marigold', name: 'Marigold box', cat: 'flowers', r: .32, build(g, R){
-    M(G.box, 0x8a5a3a, g, [0, .11, 0], null, [.62, .22, .22]);
-    M(G.box, 0x4a3222, g, [0, .215, 0], null, [.58, .02, .18]);
-    const L = []; for (let i = 0; i < 5; i++) L.push([-.24 + i * .12, .25, 0, .075]);
+    let top = .25;
+    if (GROUND){ M(G.box, 0x5a3d27, g, [0, .01, 0], null, [.6, .04, .2]); top = .06; }   // a low strip of soil instead of the box
+    else { M(G.box, 0x8a5a3a, g, [0, .11, 0], null, [.62, .22, .22]); M(G.box, 0x4a3222, g, [0, .215, 0], null, [.58, .02, .18]); }
+    const L = []; for (let i = 0; i < 5; i++) L.push([-.24 + i * .12, top, 0, .075]);
     blobs(g, R, L, 0x4f8a3a); sprinkle(g, R, L, 9, 0xf39a1e, .04, .2); sprinkle(g, R, L, 6, 0xf6c431, .04, .2);
   }},
   /* ---- leafy ---- */
@@ -549,7 +569,7 @@ const CATALOG = [
     const h = pot(g, .16, .26, C.white), lg = leafGeo(.1, .085, .15, .02, 4, .6);
     rod(g, [0, h, 0], [0, h + .72, 0], .024, 0x6b4a2f, G.cyl8);
     for (let i = 0; i < 18; i++){ const a = i * 2.4, y = h + .06 + i * .038; leaf(g, lg, R() < .3 ? 0xb9c24f : 0x4c9a3a, [Math.sin(a) * .03, y, Math.cos(a) * .03], a, rr(R, .05, .4), rr(R, -.3, .3)); }
-    for (let s = 0; s < 4; s++){ const a = s * 1.57 + R() * .5; for (let k = 0; k < 4; k++) leaf(g, lg, R() < .3 ? 0xb9c24f : 0x4c9a3a, [Math.sin(a) * (.17 + k * .01), h - .02 - k * .05, Math.cos(a) * (.17 + k * .01)], a, -1.2 + rr(R, -.2, .2), 0, .85); }
+    if (!GROUND) for (let s = 0; s < 4; s++){ const a = s * 1.57 + R() * .5; for (let k = 0; k < 4; k++) leaf(g, lg, R() < .3 ? 0xb9c24f : 0x4c9a3a, [Math.sin(a) * (.17 + k * .01), h - .02 - k * .05, Math.cos(a) * (.17 + k * .01)], a, -1.2 + rr(R, -.2, .2), 0, .85); }
   }},
   { id: 'croton', name: 'Croton', cat: 'leafy', r: .22, build(g, R){
     const h = pot(g, .15, .25, C.grey), lg = leafGeo(.17, .06, .2, .05, 4, .8);
@@ -633,6 +653,11 @@ const CATALOG = [
   }},
 ];
 const BY_ID = Object.fromEntries(CATALOG.map(d => [d.id, d]));
+const isPlant = type => BY_ID[type].cat !== 'things';   // only plants can grow straight in the soil
+// Sizes for Bigger / Smaller. Plants start at 1.5: the client's real plants are big.
+const SIZES = [.6, .7, .85, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5];
+const defScale = type => isPlant(type) ? 1.5 : 1;
+const sizeIndex = s => SIZES.reduce((b, v, i) => Math.abs(v - s) < Math.abs(SIZES[b] - s) ? i : b, 0);
 
 // Bake a model's parts into one mesh with vertex colours (cheap to draw on an iPad).
 function bake(root, R){
@@ -656,9 +681,14 @@ function bake(root, R){
   return merged;
 }
 const geoCache = {};
-function getGeo(type){
-  if (!geoCache[type]){ const root = new THREE.Group(), R = rngFrom(type); BY_ID[type].build(root, R); geoCache[type] = bake(root, R); }
-  return geoCache[type];
+function getGeo(type, ground = false){
+  const key = ground ? type + ':g' : type;
+  if (!geoCache[key]){
+    const root = new THREE.Group(), R = rngFrom(type);
+    GROUND = ground; try { BY_ID[type].build(root, R); } finally { GROUND = false; }
+    geoCache[key] = bake(root, R);
+  }
+  return geoCache[key];
 }
 
 /* ================= renderer, scene, camera ================= */
@@ -732,7 +762,7 @@ const tileRoot = new THREE.Group();
   const R = rngFrom('floor');
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++){
     const [x, z] = cellCenter(c, r);
-    if (isSoil(c, r)){ soilIndex[r * COLS + c] = cells.length; cells.push({ c, r, d: 0, g: 0, w: 0, wa: 0, j: .95 + R() * .1 }); }
+    if (isSoil(c, r)){ soilIndex[r * COLS + c] = cells.length; cells.push({ c, r, d: 0, g: 0, w: 0, wa: 0, sa: 0, j: .95 + R() * .1 }); }
     else {
       M(G.box, 0xaaa496, tileRoot, [x, TILE_TOP - .01 - .15, z], null, [CELL, .3, CELL]);
       M(G.box, 0xdcd8cf, tileRoot, [x, TILE_TOP - .01, z], null, [CELL - .01, .02, CELL - .01]);
@@ -757,17 +787,23 @@ const tuftMesh = new THREE.InstancedMesh(tuftGeo, new THREE.MeshStandardMaterial
 tuftMesh.frustumCulled = false; tuftMesh.castShadow = true; scene.add(tuftMesh);
 const tuftOff = cells.map((_, i) => { const R = rngFrom('t' + i); return Array.from({ length: 5 }, () => [rr(R, -.12, .12), rr(R, -.12, .12), rr(R, .8, 1.3), R() * 6]); });
 
+// sand gets tiny pebbles on top, so it reads as sand and not as pale soil
+const PEB = 7, PEB_COL = [0xa39a8a, 0x8a8174, 0xc9bb9c, 0x75695c, 0xb3a68c].map(h => new THREE.Color(h));
+const pebMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), cells.length * PEB);
+pebMesh.frustumCulled = false; pebMesh.receiveShadow = true; pebMesh.setColorAt(0, PEB_COL[0]); scene.add(pebMesh);
+const pebOff = cells.map((_, i) => { const R = rngFrom('p' + i); return Array.from({ length: PEB }, () => [rr(R, -.13, .13), rr(R, -.13, .13), rr(R, .009, .02), R() * 6, Math.floor(R() * PEB_COL.length)]); });
+
 const SOIL = new THREE.Color(0xc89b68), WET = new THREE.Color(0x8b5f3c), DUG1 = new THREE.Color(0x9c6c43),
-      DUG2 = new THREE.Color(0x7a5133), GRASS = new THREE.Color(0x6aa84f), MUD = new THREE.Color(0x5e4029);
+      DUG2 = new THREE.Color(0x7a5133), GRASS = new THREE.Color(0x6aa84f), MUD = new THREE.Color(0x5e4029), SAND = new THREE.Color(0xe6d3a3);
 function cellColor(c, out){
-  if (c.g) out.copy(GRASS); else if (c.d === 0) out.copy(c.w ? WET : SOIL); else out.copy(c.d === 1 ? DUG1 : DUG2);
+  if (c.g) out.copy(GRASS); else if (c.sa) out.copy(SAND); else if (c.d === 0) out.copy(c.w ? WET : SOIL); else out.copy(c.d === 1 ? DUG1 : DUG2);
   if (c.w && c.d && !c.g) out.lerp(MUD, .5);
   return out.multiplyScalar(c.j);
 }
-const cellTop = c => -c.d * DIG + (c.g ? .015 : 0);
+const cellTop = c => -c.d * DIG + (c.g ? .015 : c.sa ? .01 : 0);
 const _m = new THREE.Matrix4(), _c = new THREE.Color(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion();
 function refreshCells(){
-  let nw = 0, nt = 0;
+  let nw = 0, nt = 0, np = 0;
   cells.forEach((c, i) => {
     const [x, z] = cellCenter(c.c, c.r), top = cellTop(c);
     soilMesh.setMatrixAt(i, _m.makeTranslation(x, top, z));
@@ -780,11 +816,16 @@ function refreshCells(){
       _m.compose(_p.set(x + t[0], top, z + t[1]), _q.setFromAxisAngle(UP, t[3]), _s.setScalar(t[2]));
       tuftMesh.setMatrixAt(nt++, _m);
     }
+    if (c.sa) for (const p of pebOff[i]){
+      _m.compose(_p.set(x + p[0], top, z + p[1]), _q.setFromAxisAngle(UP, p[3]), _s.set(p[2], p[2] * .55, p[2]));
+      pebMesh.setMatrixAt(np, _m); pebMesh.setColorAt(np, PEB_COL[p[4]]); np++;
+    }
   });
   soilMesh.instanceMatrix.needsUpdate = true; soilMesh.instanceColor.needsUpdate = true;
   if (soilMesh.computeBoundingSphere) soilMesh.computeBoundingSphere();
   waterMesh.count = nw; waterMesh.instanceMatrix.needsUpdate = true;
   tuftMesh.count = nt; tuftMesh.instanceMatrix.needsUpdate = true;
+  pebMesh.count = np; pebMesh.instanceMatrix.needsUpdate = true; pebMesh.instanceColor.needsUpdate = true;
 }
 function surfaceY(x, z){
   const [c, r] = cellAt(x, z);
@@ -822,11 +863,15 @@ function rain(x, y, z, spread = .25){
 /* ================= items ================= */
 const items = [], itemMeshes = [];
 let selected = null;
-function addItem(type, x, z, rot = 0, drop = true){
-  const geo = getGeo(type), g = new THREE.Group(), mesh = new THREE.Mesh(geo, vcMat);
-  mesh.castShadow = mesh.receiveShadow = true; g.add(mesh);
+const onSoil = (x, z) => !!soilCellAt(...cellAt(x, z));
+// opt.gr: planted straight in the soil (plants on soil only), opt.s: size (1 = as built)
+function addItem(type, x, z, rot = 0, drop = true, opt = {}){
+  const plant = isPlant(type), gr = plant && !!opt.gr && onSoil(x, z);
+  const s = clamp(+opt.s || defScale(type), SIZES[0], SIZES[SIZES.length - 1]);
+  const geo = getGeo(type, gr), g = new THREE.Group(), mesh = new THREE.Mesh(geo, vcMat);
+  mesh.castShadow = mesh.receiveShadow = true; mesh.scale.setScalar(s); g.add(mesh);
   g.rotation.order = 'YXZ';
-  const it = { type, x, z, rot, g, mesh, r: BY_ID[type].r, h: geo.boundingBox.max.y, lift: false, anim: drop ? { kind: 'drop', t: 0 } : null };
+  const it = { type, x, z, rot, g, mesh, plant, gr, s, r: BY_ID[type].r * s, h: geo.boundingBox.max.y * s, lift: false, anim: drop ? { kind: 'drop', t: 0 } : null };
   mesh.userData.item = it;
   g.position.set(x, surfaceY(x, z), z); g.rotation.y = rot;
   scene.add(g); items.push(it); itemMeshes.push(mesh);
@@ -838,6 +883,14 @@ function removeItem(it){
   if (selected === it) select(null);
 }
 function clearItems(){ while (items.length) removeItem(items[0]); }
+// pot <-> straight in the soil (plants only); returns true if it changed
+function setGround(it, on){
+  on = it.plant && !!on;
+  if (it.gr === on) return false;
+  it.gr = on; it.mesh.geometry = getGeo(it.type, on); it.h = it.mesh.geometry.boundingBox.max.y * it.s;
+  return true;
+}
+function setSize(it, s){ it.s = s; it.r = BY_ID[it.type].r * s; it.h = it.mesh.geometry.boundingBox.max.y * s; }
 function canPlace(x, z, r, self){
   const [c, rw] = cellAt(x, z);
   if (!inFloor(c, rw)) return false;
@@ -851,7 +904,7 @@ const itemsOnCell = cell => items.filter(it => !it.ghost && (([c, r]) => c === c
 function select(it){
   selected = it;
   selRing.visible = !!it;
-  if (!it) selbar.style.display = 'none';
+  if (!it) selbar.style.display = 'none'; else updateSelbar();
 }
 
 // The garden as it looks in the photos (roughly).
@@ -863,19 +916,32 @@ const DEFAULT_ITEMS = [
 ];
 
 /* ================= save, undo ================= */
-const KEY = 'garden-planner-v1';
+// v2: items [type, x, z, turn, in soil, size], soil squares [dug, grass, water, sand]
+const KEY = 'garden-planner-v2', OLD_KEY = 'garden-planner-v1';
 const undoStack = [];
 function serialize(){
-  return JSON.stringify({ v: 1,
-    items: items.filter(i => !i.ghost).map(i => [i.type, +i.x.toFixed(3), +i.z.toFixed(3), +i.rot.toFixed(3)]),
-    cells: cells.map(c => [c.d, c.g, c.w, c.wa]) });
+  return JSON.stringify({ v: 2,
+    items: items.filter(i => !i.ghost).map(i => [i.type, +i.x.toFixed(3), +i.z.toFixed(3), +i.rot.toFixed(3), i.gr ? 1 : 0, i.s]),
+    cells: cells.map(c => [c.d, c.g, c.wa, c.sa]) });
+}
+// A phase 1 design (v1): squares [dug, grass, wet, water] in the old wider bed, every plant in a pot at size 1.
+// Keep the squares that are still soil; plants keep their pots and get the new bigger plant size.
+function upgrade(s){
+  if (s.v === 2) return s;
+  const out = { v: 2, items: [], cells: cells.map(() => [0, 0, 0, 0]) };
+  (s.items || []).forEach(([t, x, z, r]) => { if (BY_ID[t]) out.items.push([t, x, z, r || 0, 0, defScale(t)]); });
+  (s.cells || []).slice(0, OLD_COUNT).forEach((a, i) => {
+    const c = i % OLD_W, r = OLD_R0 + Math.floor(i / OLD_W), ni = soilIndex[r * COLS + c];
+    if (ni >= 0) out.cells[ni] = [a[0] | 0, a[1] | 0, a[3] | 0, 0];
+  });
+  return out;
 }
 function restore(json){
-  const s = JSON.parse(json);
+  const s = upgrade(JSON.parse(json));
   clearItems();
-  s.cells.forEach((a, i) => { if (cells[i]) Object.assign(cells[i], { d: a[0], g: a[1], w: 0, wa: a[3] }); });   // "wet soil" is no longer used
+  cells.forEach((c, i) => { const a = s.cells[i] || []; Object.assign(c, { d: a[0] | 0, g: a[1] | 0, w: 0, wa: a[2] | 0, sa: a[3] | 0 }); });
   refreshCells();
-  s.items.forEach(([t, x, z, r]) => { if (BY_ID[t]) addItem(t, x, z, r, false); });
+  s.items.forEach(([t, x, z, r, gr, sc]) => { if (BY_ID[t]) addItem(t, x, z, r, false, { gr, s: sc }); });
   select(null);
 }
 function pushUndo(before){ undoStack.push(before ?? serialize()); if (undoStack.length > 60) undoStack.shift(); undoBtn.disabled = false; }
@@ -883,9 +949,9 @@ function undo(){ if (!undoStack.length) return; restore(undoStack.pop()); undoBt
 function save(){ clearTimeout(save.t); save.t = setTimeout(() => { try { localStorage.setItem(KEY, serialize()); } catch (e) {} }, 300); }
 function loadDefault(empty){
   clearItems();
-  cells.forEach(c => Object.assign(c, { d: 0, g: 0, w: 0, wa: 0 }));
+  cells.forEach(c => Object.assign(c, { d: 0, g: 0, w: 0, wa: 0, sa: 0 }));
   refreshCells();
-  if (!empty) DEFAULT_ITEMS.forEach(([t, x, z]) => addItem(t, x, z, 0, false));
+  if (!empty) DEFAULT_ITEMS.forEach(([t, x, z]) => addItem(t, x, z, 0, false, { gr: true }));   // plants on the soil grow in it, the rest keep their pots
   select(null);
 }
 
@@ -921,17 +987,31 @@ function refreshSoundUI(){
 $('sfxToggle').addEventListener('change', e => { audio.init(); audio.set('sfx', e.target.checked); audio.play('tick'); refreshSoundUI(); });
 $('bgSeg').addEventListener('click', e => { const b = e.target.closest('[data-bg]'); if (!b) return; audio.init(); audio.set('bg', b.dataset.bg); audio.play('tick'); refreshSoundUI(); });
 refreshSoundUI();
+const bigBtn = $('bigBtn'), smallBtn = $('smallBtn'), potBtn = $('potBtn');
 $('turnBtn').innerHTML = ICON.turn + '<span>Turn</span>';
+bigBtn.innerHTML = ICON.bigger + '<span>Bigger</span>';
+smallBtn.innerHTML = ICON.smaller + '<span>Smaller</span>';
 $('delBtn').innerHTML = ICON.trash + '<span>Remove</span>';
+let selW = 0;   // width of the selection bar, measured once it shows
+function updateSelbar(){
+  const it = selected; if (!it) return;
+  const k = sizeIndex(it.s);
+  bigBtn.disabled = k >= SIZES.length - 1; smallBtn.disabled = k <= 0;
+  potBtn.style.display = it.plant ? '' : 'none';
+  potBtn.innerHTML = it.gr ? ICON.pot + '<span>Into pot</span>' : ICON.ground + '<span>Into soil</span>';
+  potBtn.title = it.gr ? 'Put it in a pot' : 'Plant it straight in the soil';
+  selW = 0;
+}
 $('removeZone').innerHTML = ICON.trash + 'Drop here to remove';
 
-const TOOLS = [['move', 'Move', ICON.move], ['dig', 'Dig', ICON.shovel], ['water', 'Water', ICON.drop], ['grass', 'Grass', ICON.sprout], ['rake', 'Rake', ICON.rake]];
+const TOOLS = [['move', 'Move', ICON.move], ['dig', 'Dig', ICON.shovel], ['water', 'Water', ICON.drop], ['grass', 'Grass', ICON.sprout], ['sand', 'Sand', ICON.sand], ['rake', 'Rake', ICON.rake]];
 const TOOL_HINT = {
   move: 'Drag a plant from the row below into your garden. Drag any plant to move it.',
-  dig: 'Shovel: drag over the soil to dig, again to go deeper. On water, it scoops the water out.',
+  dig: 'Shovel: drag over the soil to dig, again to go deeper. It takes off water, grass or sand first.',
   water: 'Water: tap or drag over the soil to put water there, like a drain or a pond.',
   grass: 'Grass: drag over the soil to lay grass.',
-  rake: 'Rake: drag over the soil to fill holes and water, back to plain soil.',
+  sand: 'Sand: drag over the soil to lay sand, for sand patches and paths.',
+  rake: 'Rake: drag over the soil to fill holes and clear water, grass or sand, back to plain soil.',
 };
 let tool = 'move';
 TOOLS.forEach(([id, label, icon]) => {
@@ -1068,7 +1148,7 @@ function startMove(e, it){
   select(it);
   audio.play('pick');
   const fp = floorPoint(e) || new THREE.Vector3(it.x, 0, it.z);
-  gesture = { kind: 'move', pointerId: e.pointerId, it, sx: e.clientX, sy: e.clientY, ox: it.x - fp.x, oz: it.z - fp.z, x0: it.x, z0: it.z, moved: false, valid: true, before: serialize() };
+  gesture = { kind: 'move', pointerId: e.pointerId, it, sx: e.clientX, sy: e.clientY, ox: it.x - fp.x, oz: it.z - fp.z, x0: it.x, z0: it.z, gr0: it.gr, moved: false, valid: true, before: serialize() };
 }
 function startStroke(e, ci){
   controls.enabled = false;
@@ -1086,6 +1166,7 @@ function applyTool(ci, g){
     const hadWater = c.wa;
     if (c.wa){ c.wa = 0; changed = true; }            // scoop the water out, the hole stays
     else if (c.g){ c.g = 0; changed = true; }
+    else if (c.sa){ c.sa = 0; changed = true; }         // sand comes off first, like grass
     else if (c.d < 2){ c.d++; changed = true; }
     else flash('That hole is as deep as it goes.');
     if (changed && hadWater){ splash(x, -.04, z); audio.play('splash'); }
@@ -1095,11 +1176,13 @@ function applyTool(ci, g){
     const on = itemsOnCell(c);
     rain(x, top, z); audio.play('water');
     if (on.length) on.forEach(it => it.anim = { kind: 'water', t: 0 });
-    else if (!c.wa){ Object.assign(c, { d: Math.max(1, c.d), g: 0, w: 0, wa: 1 }); changed = true; }
+    else if (!c.wa){ Object.assign(c, { d: Math.max(1, c.d), g: 0, sa: 0, w: 0, wa: 1 }); changed = true; }
   } else if (tool === 'grass'){
-    if (!c.g || c.d || c.wa){ Object.assign(c, { g: 1, d: 0, w: 0, wa: 0 }); changed = true; audio.play('grass'); }
+    if (!c.g || c.d || c.wa){ Object.assign(c, { g: 1, sa: 0, d: 0, w: 0, wa: 0 }); changed = true; audio.play('grass'); }
+  } else if (tool === 'sand'){
+    if (!c.sa || c.d || c.wa){ Object.assign(c, { sa: 1, g: 0, d: 0, w: 0, wa: 0 }); changed = true; audio.play('sand'); }
   } else if (tool === 'rake'){
-    if (c.g || c.d || c.w || c.wa){ Object.assign(c, { g: 0, d: 0, w: 0, wa: 0 }); changed = true; dirtBurst(x, top, z); audio.play('rake'); }
+    if (c.g || c.sa || c.d || c.w || c.wa){ Object.assign(c, { g: 0, sa: 0, d: 0, w: 0, wa: 0 }); changed = true; dirtBurst(x, top, z); audio.play('rake'); }
   }
   if (changed){ g.changed = true; refreshCells(); }
 }
@@ -1127,6 +1210,7 @@ window.addEventListener('pointermove', e => {
       const fp = floorPoint(e);
       if (fp){
         g.it.x = snap(fp.x + g.ox); g.it.z = snap(fp.z + g.oz);
+        if (g.gr0) setGround(g.it, onSoil(g.it.x, g.it.z));   // a plant from the soil gets a pot on the tiles
         g.valid = canPlace(g.it.x, g.it.z, g.it.r, g.it);
         showRing(g.it, g.valid);
       }
@@ -1156,8 +1240,13 @@ function endGesture(e, cancelled){
     it.lift = false; dragRing.visible = false;
     if (g.moved){
       if (!cancelled && overTray(e)){ pushUndo(g.before); removeItem(it); audio.play('remove'); flash('Removed. Press Undo to bring it back.'); save(); }
-      else if (cancelled || !g.valid){ it.x = g.x0; it.z = g.z0; if (!cancelled){ audio.play('nope'); flash("It can't go there. Try an empty spot.", true); } }
-      else { if (it.x !== g.x0 || it.z !== g.z0){ pushUndo(g.before); save(); } it.anim = { kind: 'drop', t: 0 }; audio.play('drop'); }
+      else if (cancelled || !g.valid){ it.x = g.x0; it.z = g.z0; setGround(it, g.gr0); if (!cancelled){ audio.play('nope'); flash("It can't go there. Try an empty spot.", true); } }
+      else {
+        if (it.x !== g.x0 || it.z !== g.z0){ pushUndo(g.before); save(); }
+        it.anim = { kind: 'drop', t: 0 }; audio.play('drop');
+        if (g.gr0 && !it.gr) flash('On the tiles it stands in a pot.');
+        updateSelbar();
+      }
     }
     tray.classList.remove('remove');
   } else if (g.kind === 'stroke'){
@@ -1217,6 +1306,7 @@ function moveNewDrag(d, e){
   if (!fp){ gh.g.visible = false; dragRing.visible = false; chip.style.display = 'block'; chip.style.left = e.clientX + 'px'; chip.style.top = e.clientY + 'px'; return; }
   chip.style.display = 'none';
   gh.x = snap(fp.x); gh.z = snap(fp.z);
+  setGround(gh, onSoil(gh.x, gh.z));   // a new plant goes straight in the soil, on the tiles it keeps its pot
   if (!gh.g.visible){ gh.g.position.set(gh.x, surfaceY(gh.x, gh.z) + .15, gh.z); gh.g.visible = true; }
   d.valid = canPlace(gh.x, gh.z, gh.r, gh);
   showRing(gh, d.valid);
@@ -1227,7 +1317,7 @@ function finishNewDrag(d, e){
   if (gh.g.visible && d.valid){
     gh.ghost = false; gh.lift = false; gh.anim = { kind: 'drop', t: 0 };
     pushUndo(d.before); select(gh); save(); audio.play('place');
-    if (!finishNewDrag.done){ finishNewDrag.done = true; flash('Nice! Drag it again to move it, or use Turn and Remove.'); }
+    if (!finishNewDrag.done){ finishNewDrag.done = true; flash('Nice! Drag it to move it. The buttons above it turn, resize or remove it.'); }
   } else {
     removeItem(gh);
     if (gh.g.visible){ audio.play('nope'); flash("It can't go there. Try an empty spot.", true); }
@@ -1235,14 +1325,14 @@ function finishNewDrag(d, e){
 }
 function cancelNewDrag(d){ chip.style.display = 'none'; dragRing.visible = false; controls.enabled = true; removeItem(d.ghost); }
 function tapPlace(type){
-  const r = BY_ID[type].r;
+  const r = BY_ID[type].r * defScale(type), cx = X0 + (SOIL_C[0] + SOIL_C[1] + 1) / 2 * CELL;   // start from the middle of the soil bed
   for (let ring = 0; ring < 14; ring++){
     for (let a = 0; a < Math.max(1, ring * 6); a++){
       const ang = a / Math.max(1, ring * 6) * Math.PI * 2;
-      const x = snap(Math.cos(ang) * ring * .3), z = snap(.3 + Math.sin(ang) * ring * .3);
+      const x = snap(cx + Math.cos(ang) * ring * .3), z = snap(.3 + Math.sin(ang) * ring * .3);
       if (isSoil(...cellAt(x, z)) && canPlace(x, z, r, null)){
         const before = serialize();
-        const it = addItem(type, x, z, 0, true);
+        const it = addItem(type, x, z, 0, true, { gr: true });
         pushUndo(before); select(it); save(); audio.play('place');
         flash('Added. Drag it to where you like.');
         return;
@@ -1255,6 +1345,19 @@ function tapPlace(type){
 /* ---- buttons, keys, reset ---- */
 function turnSelected(){ if (!selected) return; pushUndo(); selected.rot -= Math.PI / 4; save(); audio.play('turn'); }
 function removeSelected(){ if (!selected) return; pushUndo(); removeItem(selected); save(); audio.play('remove'); flash('Removed. Press Undo to bring it back.'); }
+function sizeSelected(dir){
+  const it = selected; if (!it) return;
+  const s = SIZES[clamp(sizeIndex(it.s) + dir, 0, SIZES.length - 1)];
+  if (s === it.s) return;
+  pushUndo(); setSize(it, s); save(); updateSelbar();
+  audio.play(dir > 0 ? 'grow' : 'shrink');
+}
+function togglePot(){
+  const it = selected; if (!it || !it.plant) return;
+  if (!it.gr && !onSoil(it.x, it.z)){ audio.play('nope'); flash('Only on the soil. Move it onto the soil first.', true); return; }
+  pushUndo(); setGround(it, !it.gr); it.anim = { kind: 'drop', t: 0 }; save(); updateSelbar();
+  audio.play(it.gr ? 'plant' : 'pot'); flash(it.gr ? 'Planted straight in the soil.' : 'Now in a pot.');
+}
 
 /* ---- save a picture of the view ---- */
 function savePicture(){
@@ -1295,6 +1398,8 @@ function savePicture(){
 /* ---- share link: the whole design lives in the link itself (no database) ---- */
 // Keep CATALOG order stable: new items go at the end, or old links will open the wrong plants.
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+// Version 2 links: 5 letters per item (type, x, z, turn + 8 if in the soil, size) and one digit per soil square.
+// Version 1 links (phase 1: 4 letters per item, 135 squares in the old wider bed) still open.
 function encodeDesign(){
   let it = '';
   for (const i of items){
@@ -1302,26 +1407,34 @@ function encodeDesign(){
     const t = CATALOG.indexOf(BY_ID[i.type]);
     const xi = clamp(Math.round(i.x / SNAP) + 11, 0, 63), zi = clamp(Math.round(i.z / SNAP) + 22, 0, 63);
     const ri = ((Math.round(-i.rot / (Math.PI / 4)) % 8) + 8) % 8;
-    it += B64[t] + B64[xi] + B64[zi] + B64[ri];
+    it += B64[t] + B64[xi] + B64[zi] + B64[ri + (i.gr ? 8 : 0)] + B64[sizeIndex(i.s)];
   }
-  // each soil square: 0 plain, 1-2 dug, 3-4 water, 5 grass; long runs of plain soil are shortened to "z" + count
-  const raw = cells.map(c => c.g ? 5 : c.wa ? 2 + c.d : c.d).join('');
+  // each soil square: 0 plain, 1-2 dug, 3-4 water, 5 grass, 6 sand; long runs of plain soil are shortened to "z" + count
+  const raw = cells.map(c => c.g ? 5 : c.sa ? 6 : c.wa ? 2 + c.d : c.d).join('');
   const cs = raw.replace(/0{3,}/g, m => { let s = ''; for (let n = m.length; n > 0; n -= 63) s += 'z' + B64[Math.min(63, n)]; return s; });
-  return '1.' + it + '.' + cs;
+  return '2.' + it + '.' + cs;
 }
 function decodeDesign(code){
   const [v, it, cs] = code.split('.');
-  if (v !== '1' || it === undefined || cs === undefined || it.length % 4) return null;
-  const out = { items: [], cells: [] };
-  for (let k = 0; k < it.length; k += 4){
-    const [t, xi, zi, ri] = [...it.slice(k, k + 4)].map(ch => B64.indexOf(ch));
-    if (Math.min(t, xi, zi, ri) < 0 || !CATALOG[t]) continue;
-    out.items.push([CATALOG[t].id, +((xi - 11) * SNAP).toFixed(2), +((zi - 22) * SNAP).toFixed(2), -ri * Math.PI / 4]);
+  const per = v === '2' ? 5 : v === '1' ? 4 : 0;
+  if (!per || it === undefined || cs === undefined || it.length % per) return null;
+  const out = { v: +v, items: [], cells: [] };
+  for (let k = 0; k < it.length; k += per){
+    const [t, xi, zi, ri, si = 0] = [...it.slice(k, k + per)].map(ch => B64.indexOf(ch));
+    if (Math.min(t, xi, zi, ri, si) < 0 || !CATALOG[t]) continue;
+    const item = [CATALOG[t].id, +((xi - 11) * SNAP).toFixed(2), +((zi - 22) * SNAP).toFixed(2), -(ri % 8) * Math.PI / 4];
+    if (per === 5) item.push(ri >= 8 ? 1 : 0, SIZES[Math.min(si, SIZES.length - 1)]);
+    out.items.push(item);
   }
   let raw = '';
   for (let k = 0; k < cs.length; k++){ if (cs[k] === 'z') raw += '0'.repeat(Math.max(0, B64.indexOf(cs[++k]))); else raw += cs[k]; }
-  if (raw.length !== cells.length || /[^0-5]/.test(raw)) return null;
-  out.cells = [...raw].map(ch => { const n = +ch; return n === 5 ? [0, 1, 0, 0] : n >= 3 ? [n - 2, 0, 0, 1] : [n, 0, 0, 0]; });
+  if (v === '1'){
+    if (raw.length !== OLD_COUNT || /[^0-5]/.test(raw)) return null;
+    out.cells = [...raw].map(ch => { const d = +ch; return d === 5 ? [0, 1, 0, 0] : d >= 3 ? [d - 2, 0, 0, 1] : [d, 0, 0, 0]; });   // phase 1 squares: [dug, grass, wet, water]
+    return JSON.stringify(upgrade(out));
+  }
+  if (raw.length !== cells.length || /[^0-6]/.test(raw)) return null;
+  out.cells = [...raw].map(ch => { const d = +ch; return d === 5 ? [0, 1, 0, 0] : d === 6 ? [0, 0, 0, 1] : d >= 3 ? [d - 2, 0, 1, 0] : [d, 0, 0, 0]; });   // [dug, grass, water, sand]
   return JSON.stringify(out);
 }
 async function shareLink(){
@@ -1339,6 +1452,9 @@ $('picBtn').onclick = savePicture;
 $('linkBtn').onclick = shareLink;
 $('turnBtn').onclick = turnSelected;
 $('delBtn').onclick = removeSelected;
+bigBtn.onclick = () => sizeSelected(1);
+smallBtn.onclick = () => sizeSelected(-1);
+potBtn.onclick = togglePot;
 undoBtn.onclick = undo;
 resetBtn.onclick = () => { $('modal').hidden = false; };
 $('modal').addEventListener('click', e => {
@@ -1351,6 +1467,8 @@ window.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); }
   else if (e.key === 'Delete' || e.key === 'Backspace') removeSelected();
   else if (e.key.toLowerCase() === 'r') turnSelected();
+  else if (e.key === '+' || e.key === '=') sizeSelected(1);
+  else if (e.key === '-' || e.key === '_') sizeSelected(-1);
   else if (e.key === 'Escape') select(null);
 });
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -1359,7 +1477,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 let trayH = 150;
 function resize(){
   const W = innerWidth, H = innerHeight;
-  trayH = tray.offsetHeight + 12;
+  trayH = tray.offsetHeight + 12; selW = 0;
   document.documentElement.style.setProperty('--trayH', trayH + 'px');
   renderer.setSize(W, H, false);
   camera.aspect = W / H;
@@ -1374,8 +1492,11 @@ function positionSelbar(){
   const p = selected.g.position;
   selRing.position.set(p.x, surfaceY(selected.x, selected.z) + .01, p.z); selRing.scale.setScalar(selected.r);
   _v.set(p.x, p.y + selected.h + .1, p.z).project(camera);
-  const x = clamp((_v.x + 1) / 2 * innerWidth, 90, innerWidth - 90), y = clamp((1 - _v.y) / 2 * innerHeight, 70, innerHeight - trayH - 20);
-  selbar.style.display = 'flex'; selbar.style.left = x + 'px'; selbar.style.top = y + 'px';
+  selbar.style.display = 'flex';
+  if (!selW) selW = selbar.offsetWidth;
+  const hw = Math.min(selW / 2 + 8, innerWidth / 2);   // keep the whole bar on screen
+  const x = clamp((_v.x + 1) / 2 * innerWidth, hw, innerWidth - hw), y = clamp((1 - _v.y) / 2 * innerHeight, 70, innerHeight - trayH - 20);
+  selbar.style.left = x + 'px'; selbar.style.top = y + 'px';
 }
 function updateItems(dt){
   const k = Math.min(1, dt * 16);
@@ -1387,6 +1508,8 @@ function updateItems(dt){
     const ty = surfaceY(it.x, it.z) + (it.lift ? .15 : 0);
     g.position.y += (ty - g.position.y) * k;
     g.rotation.y += (it.rot - g.rotation.y) * Math.min(1, dt * 12);
+    const ms = it.mesh.scale.x;   // Bigger / Smaller grow smoothly
+    if (ms !== it.s) it.mesh.scale.setScalar(Math.abs(it.s - ms) < .003 ? it.s : ms + (it.s - ms) * Math.min(1, dt * 10));
     let sy = 1, sxz = 1, wob = 0;
     if (it.anim){
       const t = (it.anim.t += dt), e = Math.exp(-t * 6);
@@ -1433,7 +1556,8 @@ function frame(now){
 makeThumbs();
 buildTray();
 let loaded = false;
-try { const s = localStorage.getItem(KEY); if (s){ restore(s); loaded = true; } } catch (e) {}
+// a phase 1 save (old key) opens too, converted to the new bed
+try { const s = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY); if (s){ restore(s); loaded = true; } } catch (e) {}
 if (!loaded) loadDefault(false);
 // Opened from a share link? Load that design (the visitor's own design stays one Undo away).
 let openedShared = false;
@@ -1462,7 +1586,8 @@ window.addEventListener('keydown', () => audio.init(), true);
 // Sound test panel for the studio: open the page with ?sounds at the end of the address.
 if (new URLSearchParams(location.search).has('sounds')){
   const LABEL = { tick: 'Button tap', pick: 'Pick up', drop: 'Put down', place: 'New plant', nope: "Can't go there", remove: 'Remove',
-    dig: 'Dig', water: 'Water', splash: 'Scoop water', grass: 'Grass', rake: 'Rake', turn: 'Turn', undo: 'Undo', shutter: 'Save picture' };
+    dig: 'Dig', water: 'Water', splash: 'Scoop water', grass: 'Grass', rake: 'Rake', sand: 'Sand', grow: 'Bigger', shrink: 'Smaller',
+    pot: 'Into pot', plant: 'Into soil', turn: 'Turn', undo: 'Undo', shutter: 'Save picture' };
   const p = document.createElement('div');
   p.className = 'panel sound-test';
   p.innerHTML = '<b>Sound test</b><p>Tap to listen. Background music is in the Sound menu at the top.</p>' +
@@ -1472,7 +1597,9 @@ if (new URLSearchParams(location.search).has('sounds')){
 }
 
 // for checking in tests
-window.__garden = { items, cells, setTool, serialize, restore, addItem, camera, controls, encodeDesign, decodeDesign, audio };
+window.__garden = { items, cells, setTool, serialize, restore, addItem, camera, controls, encodeDesign, decodeDesign, audio,
+  select, get selected(){ return selected; }, sizeSelected, togglePot, setGround, tapPlace, loadDefault, applyTool, onSoil, cellAt, soilCellAt,
+  SIZES, KEY, OLD_KEY, undo, updateItems, refreshCells, renderer, scene };
 </script>
 </body>
 </html>
