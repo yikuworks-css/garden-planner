@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-title" content="Garden Planner">
+<meta name="theme-color" content="#e2eee8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Garden Planner</title>
 <style>
   :root{
@@ -1445,6 +1449,11 @@ if (openedShared){ setHint('You opened a shared garden design. Press Undo to go 
 else { setHint('Drag empty space to turn the view. Pinch or scroll to zoom.'); hintTimer = setTimeout(() => setHint(TOOL_HINT.move), 4500); }
 $('loading').remove();
 requestAnimationFrame(frame);
+
+// Lets Chrome (Android tablets, laptops) install the planner as a real app with its icon.
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 // Browsers only allow sound after the first tap or key press.
 window.addEventListener('pointerdown', () => audio.init(), true);
